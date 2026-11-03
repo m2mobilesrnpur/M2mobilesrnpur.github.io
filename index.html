@@ -354,7 +354,6 @@
             border-radius: 8px; font-weight: 700; cursor: pointer; margin-top: 8px; font-size: 13px;
         }
 
-        /* Admin Store Bill */
         .admin-bill-card {
             background: #ffffff; color: #0f172a; border-radius: 16px;
             width: 100%; max-width: 520px; padding: 28px; box-shadow: 0 25px 50px rgba(0,0,0,0.9);
@@ -392,7 +391,6 @@
         .sign-img-preview { max-height: 55px; max-width: 150px; object-fit: contain; margin-bottom: 4px; display: block; margin-left: auto; margin-right: auto; }
         .sign-line { border-top: 1px solid #94a3b8; padding-top: 5px; font-size: 12px; color: #475569; font-weight: 600; }
 
-        /* Photo Preview Modal */
         .photo-preview-card {
             background: #111827; border: 1px solid var(--border-glass); border-radius: 16px;
             max-width: 500px; width: 100%; padding: 20px; text-align: center;
@@ -623,7 +621,7 @@
         </div>
     </div>
 
-    <!-- USER LOGIN MODAL (Mobile Number Login) -->
+    <!-- USER LOGIN MODAL -->
     <div class="modal-screen" id="loginModal">
         <div class="order-modal-card" style="max-width: 360px; text-align: center;">
             <span style="font-size: 2.2rem;">📱</span>
@@ -716,7 +714,7 @@
         </div>
     </div>
 
-    <!-- USER MY-ORDERS MODAL (Strictly filters logged-in user orders) -->
+    <!-- USER MY-ORDERS MODAL -->
     <div class="modal-screen" id="myOrdersModal">
         <div class="my-orders-card">
             <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-glass); padding-bottom:12px;">
@@ -808,7 +806,7 @@
         </div>
     </div>
 
-    <!-- ADMIN EXCLUSIVE STORE INVOICE MODAL (With Signature Upload & Send Feature) -->
+    <!-- ADMIN EXCLUSIVE STORE INVOICE MODAL -->
     <div class="modal-screen" id="adminBillModal">
         <div class="admin-bill-card" id="printableAdminBill">
             <div class="paid-stamp">PAID / RECEIVED</div>
@@ -868,7 +866,6 @@
                 </div>
             </div>
 
-            <!-- Admin Signature Upload & Customer Delivery Control -->
             <div id="adminSignControlBox" style="background:#f1f5f9; padding:12px; border-radius:8px; margin-top:16px; border:1px dashed #cbd5e1;" class="no-print">
                 <label style="color:#334155; font-size:12px; font-weight:700; margin-bottom:5px; display:block;">✍️ Upload Admin Signature (Mintu Karmakar):</label>
                 <div style="display:flex; gap:8px;">
@@ -908,6 +905,46 @@
     //<![CDATA[
         const SHOP_CONTACT = "8967043121";
         const FIREBASE_REST_URL = "https://mintu-shop-default-rtdb.firebaseio.com";
+
+        // ========================================================
+        // ⚡ SMART AUTO IMAGE COMPRESSOR (5-15MB -> 40KB Instant Fix)
+        // ========================================================
+        function compressImage(file, maxWidth = 800, maxHeight = 800, quality = 0.72) {
+            return new Promise((resolve) => {
+                if (!file) return resolve("");
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.src = event.target.result;
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        let width = img.width;
+                        let height = img.height;
+
+                        if (width > height) {
+                            if (width > maxWidth) {
+                                height = Math.round((height * maxWidth) / width);
+                                width = maxWidth;
+                            }
+                        } else {
+                            if (height > maxHeight) {
+                                width = Math.round((width * maxHeight) / height);
+                                height = maxHeight;
+                            }
+                        }
+
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        resolve(canvas.toDataURL('image/jpeg', quality));
+                    };
+                    img.onerror = () => resolve(event.target.result);
+                };
+                reader.onerror = () => resolve("");
+            });
+        }
 
         // Firebase Configuration
         const firebaseConfig = {
@@ -968,7 +1005,7 @@
                 estimatedTime: o.estimatedTime || '1-2 Days',
                 status: o.status || 'Order Received',
                 photo: o.photo || '',
-                adminSignature: o.adminSignature || '' // Saved Admin Signature
+                adminSignature: o.adminSignature || ''
             };
         }
 
@@ -987,8 +1024,6 @@
         };
         
         let receiptCounter = parseInt(localStorage.getItem('mintu_receipt_counter')) || 1001;
-
-        // Current Customer Login Session (Mobile Number)
         let loggedInCustomerPhone = localStorage.getItem('mintu_logged_user_phone') || null;
 
         let currentCategory = 'All';
@@ -1007,7 +1042,7 @@
         }
 
         // ========================================================
-        // 👤 CUSTOMER MOBILE LOGIN & SESSION MANAGEMENT
+        // 👤 CUSTOMER LOGIN UI
         // ========================================================
         function updateNavAuthUI() {
             const authBtn = document.getElementById('navAuthBtn');
@@ -1061,7 +1096,7 @@
         }
 
         // ========================================================
-        // 🌐 DUAL CLOUD SYNC & REALTIME DATABASE
+        // 🌐 CLOUD DATA SYNC
         // ========================================================
         async function uploadOrderToCloud(orderObj) {
             let success = false;
@@ -1094,7 +1129,7 @@
                 if (res.ok) {
                     const data = await res.json();
                     orders = data ? Object.values(data).map(normalizeOrderData).filter(Boolean) : [];
-                    localStorage.setItem('mintu_store_orders', JSON.stringify(orders));
+                    try { localStorage.setItem('mintu_store_orders', JSON.stringify(orders)); } catch(e){}
                     refreshAdminTables();
                     if (manualAlert) showToast("✅ Synced with Google Cloud!");
                 }
@@ -1107,7 +1142,7 @@
             db.ref('orders').on('value', (snapshot) => {
                 const val = snapshot.val();
                 orders = val ? Object.values(val).map(normalizeOrderData).filter(Boolean) : [];
-                localStorage.setItem('mintu_store_orders', JSON.stringify(orders));
+                try { localStorage.setItem('mintu_store_orders', JSON.stringify(orders)); } catch(e){}
                 refreshAdminTables();
             }, (error) => {
                 const ind = document.getElementById('cloudStatusIndicator');
@@ -1119,7 +1154,7 @@
                 const val = snapshot.val();
                 if (val) {
                     products = Object.values(val);
-                    localStorage.setItem('mintu_store_products', JSON.stringify(products));
+                    try { localStorage.setItem('mintu_store_products', JSON.stringify(products)); } catch(e){}
                     applyFilters();
                     refreshAdminTables();
                 }
@@ -1129,7 +1164,7 @@
                 const val = snapshot.val();
                 if (val) {
                     liveOffer = val;
-                    localStorage.setItem('mintu_live_offer', JSON.stringify(liveOffer));
+                    try { localStorage.setItem('mintu_live_offer', JSON.stringify(liveOffer)); } catch(e){}
                     renderLiveOffer();
                 }
             });
@@ -1139,9 +1174,9 @@
         updateNavAuthUI();
 
         // ========================================================
-        // ✍️ ADMIN SIGNATURE UPLOAD & CLOUD DISTRIBUTION
+        // ✍️ ADMIN SIGNATURE WITH AUTO-COMPRESSION
         // ========================================================
-        function saveAdminSignatureToBill() {
+        async function saveAdminSignatureToBill() {
             if (!currentAdminBillOrder) return;
             const fileInput = document.getElementById('adminSignFileInput');
             if (!fileInput.files || !fileInput.files[0]) {
@@ -1149,27 +1184,21 @@
                 return;
             }
 
-            const reader = new FileReader();
-            reader.onload = async function(e) {
-                const signBase64 = e.target.result;
-                currentAdminBillOrder.adminSignature = signBase64;
-                
-                // Update local orders
-                const idx = orders.findIndex(o => o.receiptNo === currentAdminBillOrder.receiptNo);
-                if (idx !== -1) orders[idx].adminSignature = signBase64;
-                localStorage.setItem('mintu_store_orders', JSON.stringify(orders));
+            showToast("⏳ Processing signature...");
+            const signBase64 = await compressImage(fileInput.files[0], 500, 250, 0.8);
+            currentAdminBillOrder.adminSignature = signBase64;
+            
+            const idx = orders.findIndex(o => o.receiptNo === currentAdminBillOrder.receiptNo);
+            if (idx !== -1) orders[idx].adminSignature = signBase64;
+            try { localStorage.setItem('mintu_store_orders', JSON.stringify(orders)); } catch(e){}
 
-                // Save to Google Cloud Firebase
-                await uploadOrderToCloud(currentAdminBillOrder);
+            await uploadOrderToCloud(currentAdminBillOrder);
 
-                // Update UI preview
-                const signImg = document.getElementById('adminBillSignImg');
-                signImg.src = signBase64;
-                signImg.style.display = 'block';
+            const signImg = document.getElementById('adminBillSignImg');
+            signImg.src = signBase64;
+            signImg.style.display = 'block';
 
-                showToast("✅ Signature saved & officially attached to customer's bill!");
-            };
-            reader.readAsDataURL(fileInput.files[0]);
+            showToast("✅ Signature saved & sent to customer!");
         }
 
         function openAdminBill(receiptNo, isCustomerView = false) {
@@ -1188,7 +1217,6 @@
             document.getElementById('billItemPrice').innerText = `₹${priceVal}`;
             document.getElementById('billTotalAmount').innerText = `₹${priceVal}`;
 
-            // Signature display
             const signImg = document.getElementById('adminBillSignImg');
             const adminControl = document.getElementById('adminSignControlBox');
             if (ord.adminSignature) {
@@ -1198,13 +1226,7 @@
                 signImg.style.display = 'none';
             }
 
-            // Hide signature upload control if customer is viewing
-            if (isCustomerView) {
-                adminControl.style.display = 'none';
-            } else {
-                adminControl.style.display = 'block';
-            }
-
+            adminControl.style.display = isCustomerView ? 'none' : 'block';
             document.getElementById('adminBillModal').style.display = 'flex';
         }
 
@@ -1249,7 +1271,6 @@
             ctx.moveTo(60, 185); ctx.lineTo(canvas.width - 60, 185);
             ctx.stroke();
 
-            // Meta box
             ctx.fillStyle = "#f8fafc";
             ctx.fillRect(60, 210, canvas.width - 120, 160);
             ctx.strokeStyle = "#cbd5e1";
@@ -1277,7 +1298,6 @@
             ctx.fillStyle = "#0f172a"; ctx.font = "bold 18px sans-serif";
             ctx.fillText(o.model, 500, 345);
 
-            // Table
             ctx.fillStyle = "#f1f5f9";
             ctx.fillRect(60, 400, canvas.width - 120, 45);
             ctx.fillStyle = "#0f172a";
@@ -1317,7 +1337,6 @@
             ctx.font = "bold 34px sans-serif";
             ctx.fillText(`₹${o.price}`, canvas.width - 80, 630);
 
-            // Stamp
             ctx.save();
             ctx.translate(650, 760);
             ctx.rotate(-12 * Math.PI / 180);
@@ -1359,7 +1378,6 @@
                 showToast("📥 Official Invoice downloaded!");
             }
 
-            // Draw Admin Signature on canvas if available
             if (o.adminSignature) {
                 const signImg = new Image();
                 signImg.crossOrigin = "anonymous";
@@ -1367,9 +1385,7 @@
                     ctx.drawImage(signImg, canvas.width - 240, 900, 160, 60);
                     finishAndDownload();
                 };
-                signImg.onerror = function() {
-                    finishAndDownload();
-                };
+                signImg.onerror = () => finishAndDownload();
                 signImg.src = o.adminSignature;
             } else {
                 finishAndDownload();
@@ -1377,7 +1393,7 @@
         }
 
         // ========================================================
-        // 📦 MY ORDERS (Filtered STRICTLY for the Logged-in Phone)
+        // 📦 MY ORDERS (Filtered Strictly by Mobile Number)
         // ========================================================
         function openMyOrdersModal() {
             if (!loggedInCustomerPhone) {
@@ -1389,7 +1405,6 @@
             container.innerHTML = '';
             document.getElementById('userPhoneBanner').innerText = `Logged in phone: +91 ${loggedInCustomerPhone}`;
 
-            // Filter ONLY this customer's orders
             const cleanUserPhone = loggedInCustomerPhone.slice(-10);
             const myOrders = orders.filter(o => (o.phone || '').replace(/\D/g, '').slice(-10) === cleanUserPhone);
 
@@ -1434,7 +1449,6 @@
             document.getElementById('myOrdersModal').style.display = 'none';
         }
 
-        // Live Tracking Timeline
         function openLiveTracking(receiptNo) {
             const ord = orders.find(o => o.receiptNo === receiptNo);
             if (!ord) {
@@ -1450,7 +1464,6 @@
             document.getElementById('trackModelName').innerText = `Model: ${ord.model} | Customer: ${ord.name}`;
             document.getElementById('trackEstimateTime').innerText = ord.estimatedTime || "1-2 Days Required";
 
-            // If admin has attached a signature / finalized bill
             const signedBillBtn = document.getElementById('trackViewBillBtn');
             if (ord.adminSignature || ord.status === 'Delivered') {
                 signedBillBtn.style.display = 'inline-block';
@@ -1503,13 +1516,11 @@
         }
 
         // ==========================================
-        //  Order Placement (Auto-Fill Phone if Logged In)
+        //  Order Placement
         // ==========================================
         function openOrderModal(id) {
             selectedProduct = products.find(p => p.id === id);
             document.getElementById('orderPartName').innerText = `${selectedProduct.name} (₹${selectedProduct.price})`;
-            
-            // Auto fill phone if logged in
             if (loggedInCustomerPhone) {
                 document.getElementById('custPhone').value = loggedInCustomerPhone;
             }
@@ -1531,17 +1542,15 @@
                 return;
             }
 
-            // Save phone session
             loggedInCustomerPhone = phone.slice(-10);
             localStorage.setItem('mintu_logged_user_phone', loggedInCustomerPhone);
             updateNavAuthUI();
 
-            // Auto-reduce stock
             if (selectedProduct) {
                 const targetProduct = products.find(p => p.id === selectedProduct.id);
                 if (targetProduct && targetProduct.stock > 0) {
                     targetProduct.stock -= 1;
-                    localStorage.setItem('mintu_store_products', JSON.stringify(products));
+                    try { localStorage.setItem('mintu_store_products', JSON.stringify(products)); } catch(e){}
 
                     if (isFirebaseActive && db) {
                         db.ref('products/' + targetProduct.id).set(targetProduct);
@@ -1576,7 +1585,7 @@
             };
 
             orders.unshift(order);
-            localStorage.setItem('mintu_store_orders', JSON.stringify(orders));
+            try { localStorage.setItem('mintu_store_orders', JSON.stringify(orders)); } catch(e){}
 
             await uploadOrderToCloud(order);
             currentGeneratedOrder = order;
@@ -1592,7 +1601,7 @@
             refreshAdminTables();
         }
 
-        // Custom Request
+        // Custom Request with Auto-Compressor
         function openCustomRequestModal() {
             if (loggedInCustomerPhone) {
                 document.getElementById('customCustPhone').value = loggedInCustomerPhone;
@@ -1604,7 +1613,7 @@
             document.getElementById('customRequestModal').style.display = 'none';
         }
 
-        function submitCustomOrderRequest() {
+        async function submitCustomOrderRequest() {
             const name = document.getElementById('customCustName').value.trim();
             const phone = document.getElementById('customCustPhone').value.trim().replace(/\D/g, '');
             const model = document.getElementById('customCustModel').value.trim();
@@ -1617,19 +1626,20 @@
                 return;
             }
 
+            showToast("⏳ Processing request & optimizing photo...");
+
             loggedInCustomerPhone = phone.slice(-10);
             localStorage.setItem('mintu_logged_user_phone', loggedInCustomerPhone);
             updateNavAuthUI();
 
+            let photoBase64 = "";
             if (photoFile) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    processCustomOrder(name, loggedInCustomerPhone, model, desc, address, e.target.result);
-                };
-                reader.readAsDataURL(photoFile);
-            } else {
-                processCustomOrder(name, loggedInCustomerPhone, model, desc, address, "");
+                try {
+                    photoBase64 = await compressImage(photoFile, 800, 800, 0.75);
+                } catch(e) {}
             }
+
+            await processCustomOrder(name, loggedInCustomerPhone, model, desc, address, photoBase64);
         }
 
         async function processCustomOrder(name, phone, model, desc, address, photoBase64) {
@@ -1653,7 +1663,7 @@
             };
 
             orders.unshift(customOrder);
-            localStorage.setItem('mintu_store_orders', JSON.stringify(orders));
+            try { localStorage.setItem('mintu_store_orders', JSON.stringify(orders)); } catch(e){}
 
             await uploadOrderToCloud(customOrder);
             currentGeneratedOrder = customOrder;
@@ -1730,8 +1740,7 @@
             ctx.lineWidth = 2;
             ctx.setLineDash([8, 8]);
             ctx.beginPath();
-            ctx.moveTo(50, 220);
-            ctx.lineTo(canvas.width - 50, 220);
+            ctx.moveTo(50, 220); ctx.lineTo(canvas.width - 50, 220);
             ctx.stroke();
             ctx.setLineDash([]);
 
@@ -1957,7 +1966,7 @@
 
         async function updateOrderPrice(index, newPrice) {
             orders[index].price = newPrice;
-            localStorage.setItem('mintu_store_orders', JSON.stringify(orders));
+            try { localStorage.setItem('mintu_store_orders', JSON.stringify(orders)); } catch(e){}
             await uploadOrderToCloud(orders[index]);
             refreshAdminTables();
             showToast("Part price updated in Cloud!");
@@ -1965,14 +1974,14 @@
 
         async function updateEstimatedTime(index, newTime) {
             orders[index].estimatedTime = newTime;
-            localStorage.setItem('mintu_store_orders', JSON.stringify(orders));
+            try { localStorage.setItem('mintu_store_orders', JSON.stringify(orders)); } catch(e){}
             await uploadOrderToCloud(orders[index]);
             showToast("Estimated time updated in Cloud!");
         }
 
         async function updateLiveStatus(index, newStatus) {
             orders[index].status = newStatus;
-            localStorage.setItem('mintu_store_orders', JSON.stringify(orders));
+            try { localStorage.setItem('mintu_store_orders', JSON.stringify(orders)); } catch(e){}
             await uploadOrderToCloud(orders[index]);
             showToast(`Status updated in Cloud: ${newStatus}`);
         }
@@ -1981,7 +1990,7 @@
             if (confirm("Are you sure you want to delete this order?")) {
                 const receipt = orders[i].receiptNo;
                 orders.splice(i, 1);
-                localStorage.setItem('mintu_store_orders', JSON.stringify(orders));
+                try { localStorage.setItem('mintu_store_orders', JSON.stringify(orders)); } catch(e){}
 
                 if (isFirebaseActive && db) {
                     db.ref('orders/' + receipt).remove();
@@ -1998,7 +2007,7 @@
         async function updateProductStock(index, newStock) {
             const stockNum = parseInt(newStock) || 0;
             products[index].stock = stockNum;
-            localStorage.setItem('mintu_store_products', JSON.stringify(products));
+            try { localStorage.setItem('mintu_store_products', JSON.stringify(products)); } catch(e){}
 
             if (isFirebaseActive && db) {
                 db.ref('products/' + products[index].id).set(products[index]);
@@ -2019,7 +2028,7 @@
             if (confirm("Are you sure you want to delete this part?")) {
                 const prodId = products[i].id;
                 products.splice(i, 1);
-                localStorage.setItem('mintu_store_products', JSON.stringify(products));
+                try { localStorage.setItem('mintu_store_products', JSON.stringify(products)); } catch(e){}
 
                 if (isFirebaseActive && db) {
                     db.ref('products/' + prodId).remove();
@@ -2034,7 +2043,8 @@
             }
         }
 
-        function saveNewPart() {
+        // Save New Part with Auto-Compressor
+        async function saveNewPart() {
             const name = document.getElementById('newPartName').value.trim();
             const cat = document.getElementById('newPartCategory').value;
             const price = document.getElementById('newPartPrice').value.trim();
@@ -2047,22 +2057,22 @@
                 return;
             }
 
+            showToast("⏳ Optimizing image and uploading...");
+
+            let imgData = "https://images.unsplash.com/photo-1580910051074-3eb694886505?w=500";
             if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    addRecord(name, cat, price, stock, desc, e.target.result);
-                };
-                reader.readAsDataURL(file);
-            } else {
-                const defaultImg = "https://images.unsplash.com/photo-1580910051074-3eb694886505?w=500";
-                addRecord(name, cat, price, stock, desc, defaultImg);
+                try {
+                    imgData = await compressImage(file, 800, 800, 0.75);
+                } catch(e) {}
             }
+
+            await addRecord(name, cat, price, stock, desc, imgData);
         }
 
         async function addRecord(name, cat, price, stock, desc, img) {
             const newP = { id: Date.now(), name, category: cat, price, stock: stock, desc, image: img };
             products.push(newP);
-            localStorage.setItem('mintu_store_products', JSON.stringify(products));
+            try { localStorage.setItem('mintu_store_products', JSON.stringify(products)); } catch(e){}
 
             if (isFirebaseActive && db) {
                 db.ref('products/' + newP.id).set(newP);
@@ -2075,7 +2085,7 @@
                 });
             } catch(e) {}
 
-            showToast("Part added with stock quantity!");
+            showToast("✅ Part uploaded successfully!");
 
             document.getElementById('newPartName').value = '';
             document.getElementById('newPartPrice').value = '';
@@ -2182,7 +2192,7 @@
                 desc: desc || "Limited-time opportunity while offers last!"
             };
 
-            localStorage.setItem('mintu_live_offer', JSON.stringify(liveOffer));
+            try { localStorage.setItem('mintu_live_offer', JSON.stringify(liveOffer)); } catch(e){}
             
             if (isFirebaseActive && db) {
                 db.ref('liveOffer').set(liveOffer);
@@ -2201,7 +2211,7 @@
 
         async function removeLiveOffer() {
             liveOffer = { active: false };
-            localStorage.setItem('mintu_live_offer', JSON.stringify(liveOffer));
+            try { localStorage.setItem('mintu_live_offer', JSON.stringify(liveOffer)); } catch(e){}
 
             if (isFirebaseActive && db) {
                 db.ref('liveOffer').set(liveOffer);
